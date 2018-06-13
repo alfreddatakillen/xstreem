@@ -1,13 +1,22 @@
 {
   "name": "xstreem",
   "version": "1.0.0",
-  "description": "Local event store module for event sourcing",
+  "description": "Local event store (Node.js) module for event sourcing",
   "main": "index.js",
   "scripts": {
     "test": "NODE_ENV=test node_modules/.bin/mocha test/**/*.js"
   },
   "author": "Alfred Godoy <alfred@nurd.nu>",
-  "license": "ISC",
+  "homepage": "https://github.com/alfreddatakillen/xstreem",
+  "bugs": {
+    "url": "https://github.com/alfreddatakillen/xstreem/issues",
+    "email": "alfred@nurd.nu"
+  },
+  "license": "(ISC OR GPL-3.0)",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/alfreddatakillen/xstreem.git"
+  },
   "dependencies": {
     "indicesof": "1.0.0",
     "tempy": "^0.2.1"
