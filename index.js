@@ -1,14 +1,11 @@
-const EventEmitter = require('events');
 const fs = require('fs');
 const indicesOf = require('indicesof');
 const onDeath = require('./ondeath');
 const tempy = require('tempy');
 
-class XStreem extends EventEmitter {
+class XStreem {
 
 	constructor(filename, logFn) {
-
-		super();
 
 		// Use temporary file if none was given:
 		if (!filename) {
