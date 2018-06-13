@@ -275,10 +275,10 @@ describe('XStreem', () => {
 				return new Promise((resolve, reject) => {
 					const log = [];
 					eventstream.listen(0, (pos, event) => {
-						log.push('a' + event.testevent);
+						log.push('a' + pos);
 						if (pos === 3) {
 							eventstream.listen(0, (pos, event) => {
-								log.push('b' + event.testevent);
+								log.push('b' + pos);
 								if (pos === 5) {
 									eventstream.listen(3, (pos, event) => {
 										log.push('c' + event.testevent);
