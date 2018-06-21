@@ -49,3 +49,8 @@ Event sizes
 Events should not be too large.
 There is a hard limit of 1 megabyte (as JSON serialized object), which will make this module hang/crash/flip. :)
 
+Changelog
+---------
+
+* `1.1.0` - Fixed the clean up of temporary log files on process exit.
+* `1.0.0` - Initial version.

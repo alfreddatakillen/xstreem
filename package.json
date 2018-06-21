@@ -14,11 +14,12 @@
   },
   "license": "(ISC OR GPL-3.0)",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/alfreddatakillen/xstreem.git"
+    "type": "git",
+    "url": "https://github.com/alfreddatakillen/xstreem.git"
   },
   "dependencies": {
     "indicesof": "1.0.0",
+    "ondeath": "^1.0.0",
     "tempy": "^0.2.1"
   },
   "devDependencies": {

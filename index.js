@@ -1,6 +1,6 @@
 const fs = require('fs');
 const indicesOf = require('indicesof');
-const onDeath = require('./ondeath');
+const onDeath = require('ondeath');
 const tempy = require('tempy');
 
 class XStreem {
