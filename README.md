@@ -19,7 +19,7 @@ eventstream.add({ action: 'goal', scorer: 'Lionel Messi', minute: 89 })
     });
 
 // Process all events (from position 0):
-eventstorage.listen(0, (pos, event) => {
+eventstream.listen(0, (pos, event) => {
     // pos = 0
     // events = { action: 'goal', scorer: 'Lionel Messi', minute: 89 }
 });
@@ -28,8 +28,25 @@ eventstorage.listen(0, (pos, event) => {
 The Node.js process will not exit before you remove your event listeners:
 
 ```
-eventstorage.removeAllListeners();
+eventstream.removeAllListeners();
 ```
+
+API
+---
+
+### `.add(eventobj)`
+
+Where `eventobj` is any (JSON stringable) object that represents an event.
+
+Returns a promise which resolves the event's position (Integer) in the event stream.
+
+### `.listen(startPos, callbackFn)`
+
+Where `startPos` is the event stream position to start listen from.
+
+The `callbackFn` should be a function. It will be called like this:
+`callbackFn(pos, eventobj)` where `eventobj` is the object representing an event,
+and `pos` is that event's position in the event stream. 
 
 Debugging
 ---------

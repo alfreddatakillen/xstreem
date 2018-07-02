@@ -1,7 +1,6 @@
 const fs = require('fs');
 const indicesOf = require('indicesof');
-const onDeath = require('ondeath');
-const tempy = require('tempy');
+const disposablefile = require('disposablefile');
 
 class XStreem {
 
@@ -9,11 +8,7 @@ class XStreem {
 
 		// Use temporary file if none was given:
 		if (!filename) {
-			this.filename = tempy.file();
-			onDeath(() => {
-				// Remove temporary file if process exists:
-				fs.unlink(this.filename);
-			});
+			this.filename = disposablefile.fileSync({ prefix: 'xstreem-' })
 		} else {
 			this.filename = filename;
 		}
@@ -153,7 +148,14 @@ class XStreem {
 						if (listener.pos <= this.readPosition) {
 							if (this.debug) this.debug('Calling listener callback for event#' + this.readPosition + '.');
 							listener.pos++;
-							listener.cb(this.readPosition, eventData);
+
+							// We do a deep clone of the eventData object each time, to make sure that one callback does
+							// not mess upp the data for the rest of the callbacks.
+							// Just cloning (i.e. {...eventData}) would not do a deep clone,
+							// but JSON.parse(JSON.stringify(eventData)) does:
+
+							listener.cb(this.readPosition, JSON.parse(JSON.stringify(eventData)));
+
 							if (prevrd !== this.readDescriptor) {
 								 // _restartReadDescriptor() did run. Lets not continue this loop.
 								break;
