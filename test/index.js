@@ -89,7 +89,7 @@ describe('XStreem', () => {
 		});
 	});
 
-	describe('poll()', () => {
+	describe('_poll()', () => {
 
 		describe('calls to registered listeners', () => {
 

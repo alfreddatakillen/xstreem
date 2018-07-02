@@ -58,7 +58,7 @@ class XStreem {
 		this._ensureFileDescriptors()
 		this._listeners.push({ pos, cb });
 		if (this.pollInterval === null) {
-			this.pollInterval = setInterval(() => this.poll(), 1000);
+			this.pollInterval = setInterval(() => this._poll(), 1000);
 		}
 
 		if (pos < this.readPosition) {
@@ -66,7 +66,7 @@ class XStreem {
 		}
 
 		if (this.debug) this.debug('Successfully added event listener from pos ' + pos);;
-		setImmediate(() => this.poll());
+		setImmediate(() => this._poll());
 	}
 
 	_ensureFileDescriptors() {
@@ -108,7 +108,7 @@ class XStreem {
 		return blobs;
 	}
 
-	poll() {
+	_poll() {
 		if (this.readDescriptor === null) return;
 
 		if (this.pollLock) return;
@@ -170,7 +170,7 @@ class XStreem {
 				}
 			}
 			this.pollLock = false;
-			if (bytesRead > 0) setImmediate(() => this.poll());
+			if (bytesRead > 0) setImmediate(() => this._poll());
 		});
 
 	}
