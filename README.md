@@ -69,5 +69,6 @@ There is a hard limit of 1 megabyte (as JSON serialized object), which will make
 Changelog
 ---------
 
+* `1.1.1` - Better clean up solution for temporary logs.
 * `1.1.0` - Fixed the clean up of temporary log files on process exit.
 * `1.0.0` - Initial version.
