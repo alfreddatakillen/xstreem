@@ -46,6 +46,19 @@ class XStreem {
 		});
 	}
 
+	removeListener(cb) {
+		const indices = [];
+		this._listeners.forEach((listener, index) => { if (listener.cb === cb) { indices.push(index); } });
+		indices.sort((a, b) => b - a);
+		indices.forEach(index => {
+			this._listeners.splice(index, 1);
+		});
+		if (this._listeners.length === 0 && this.pollInterval !== null) {
+			clearInterval(this.pollInterval);
+			this.pollInterval = null;
+		}
+	}
+
 	removeAllListeners() {
 		if (this.pollInterval !== null) {
 			clearInterval(this.pollInterval);

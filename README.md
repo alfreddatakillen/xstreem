@@ -46,7 +46,15 @@ Where `startPos` is the event stream position to start listen from.
 
 The `callbackFn` should be a function. It will be called like this:
 `callbackFn(pos, eventobj)` where `eventobj` is the object representing an event,
-and `pos` is that event's position in the event stream. 
+and `pos` is that event's position in the event stream.
+
+### `.removeListener(callbackFn)`
+
+Stops calling the `callbackFn` for events.
+
+### `.removeAllListeners()`
+
+Stops calling all listener callback functions on new events.
 
 Debugging
 ---------
@@ -69,6 +77,7 @@ There is a hard limit of 1 megabyte (as JSON serialized object), which will make
 Changelog
 ---------
 
+* `1.2.0` - Added `.removeListener()` function.
 * `1.1.1` - Better clean up solution for temporary logs.
 * `1.1.0` - Fixed the clean up of temporary log files on process exit.
 * `1.0.0` - Initial version.

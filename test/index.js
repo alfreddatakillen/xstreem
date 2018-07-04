@@ -89,6 +89,58 @@ describe('XStreem', () => {
 		});
 	});
 
+	describe('removeListener()', () => {
+		it('should remove the specified listener', function() {
+			this.timeout(10000);
+
+			const log = [];
+			const listener0 = (pos, event) => { log.push([ 0, pos, event ]); }; 
+			const listener1 = (pos, event) => { log.push([ 1, pos, event ]); }; 
+			const listener2 = (pos, event) => { log.push([ 2, pos, event ]); };
+
+			const listener0remover = () => { eventstream.removeListener(listener0); eventstream.removeListener(listener0remover); };
+			const listener1remover = () => { eventstream.removeListener(listener1); eventstream.removeListener(listener1remover); };
+			const listener2remover = () => { eventstream.removeListener(listener2); eventstream.removeListener(listener2remover); };
+
+			const eventstream = new XStreem();
+
+			eventstream.listen(0, listener0);
+			eventstream.listen(0, listener1);
+			eventstream.listen(0, listener2);
+			eventstream.listen(1, listener0remover);
+			eventstream.listen(2, listener1remover);
+			eventstream.listen(3, listener2remover);
+
+			return eventstream.add({ char: 'a' })
+				.then(() => eventstream.add({ char: 'b' }))
+				.then(() => eventstream.add({ char: 'c' }))
+				.then(() => eventstream.add({ char: 'd' }))
+				.then(() => eventstream.add({ char: 'e' }))
+				.then(() => {
+					return new Promise((resolve, reject) => {
+						setTimeout(resolve, 3000);
+					});
+				})
+				.then(() => {
+					expect(log).to.deep.equal([
+						[ 0, 0, { char: 'a'} ],
+						[ 1, 0, { char: 'a'} ],
+						[ 2, 0, { char: 'a'} ],
+
+						[ 0, 1, { char: 'b'} ],
+						[ 1, 1, { char: 'b'} ],
+						[ 2, 1, { char: 'b'} ],
+
+						[ 1, 2, { char: 'c'} ],
+						[ 2, 2, { char: 'c'} ],
+
+						[ 2, 3, { char: 'd'} ]
+					]);
+				});
+
+		});
+	});
+
 	describe('_poll()', () => {
 
 		describe('calls to registered listeners', () => {
