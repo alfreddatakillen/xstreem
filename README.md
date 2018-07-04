@@ -38,7 +38,7 @@ API
 
 Where `eventobj` is any (JSON stringable) object that represents an event.
 
-Returns a promise which resolves the event's position (Integer) in the event stream.
+Returns a promise which resolves on successful write to the filesystem.
 
 ### `.listen(startPos, callbackFn)`
 
