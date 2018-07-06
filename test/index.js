@@ -31,14 +31,33 @@ describe('XStreem', () => {
 		it('should create a file descriptor for writing', () => {
 			const eventstream = new XStreem();
 			expect(eventstream.writeDescriptor).to.equal(null);
-			return eventstream.add({ event: 'testevent' }, { resolvePosition: false } )
+			return eventstream.add({ event: 'testevent' })
 				.then(() => {
 					// File descriptors are numbers:
 					expect(eventstream.writeDescriptor).to.be.a('number');
 				});
 		});
 
-		it('should add event to log file', () => {
+		it('should not result in a open read descriptor, if pos is not expected in resolved result.', () => {
+			const eventstream = new XStreem();
+			expect(eventstream.readDescriptor).to.equal(null);
+			return eventstream.add({ event: 'testevent' }, { resolvePosition: false } )
+				.then(() => {
+					expect(eventstream.readDescriptor).to.equal(null);
+				});
+		});
+		
+		it('should open a read descriptor, if pos is expected in resolved result.', () => {
+			const eventstream = new XStreem();
+			expect(eventstream.readDescriptor).to.equal(null);
+			return eventstream.add({ event: 'testevent' })
+				.then(() => {
+					expect(eventstream.readDescriptor).to.be.a('number');
+				});
+		});
+		
+		it('should add event to log file', function() {
+			this.timeout(10000);
 			const eventstream = new XStreem();
 			return eventstream.add({ event: 'testevent' })
 				.then(() => {
@@ -50,6 +69,41 @@ describe('XStreem', () => {
 					const content = fs.readFileSync(eventstream.filename, 'utf8');
 					expect(content).to.contain('{"event":"testevent"}');
 					expect(content).to.contain('{"event":"another testevent"}');
+				})
+		});
+
+		it('should resolve the event position', function() {
+			this.timeout(10000);
+			const eventstream = new XStreem();
+			const filename = eventstream.filename;
+			return eventstream.add({ event: 'testevent' })
+				.then(pos => {
+					expect(pos).to.equal(0);
+					return eventstream.add({ event: 'testevent' });
+				})
+				.then(pos => {
+					expect(pos).to.equal(1);
+					return eventstream.add({ event: 'testevent' });
+				})
+				.then(pos => {
+					expect(pos).to.equal(2);
+				})
+				.then(() => {
+
+					const nextEventStream = new XStreem(filename);
+					return nextEventStream.add({ event: 'testevent' })
+					.then(pos => {
+						expect(pos).to.equal(3);
+						return nextEventStream.add({ event: 'testevent' });
+					})
+					.then(pos => {
+						expect(pos).to.equal(4);
+						return nextEventStream.add({ event: 'testevent' });
+					})
+					.then(pos => {
+						expect(pos).to.equal(5);
+					})
+
 				})
 		});
 
