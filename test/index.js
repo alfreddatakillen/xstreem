@@ -1,5 +1,7 @@
 const expect = require('chai').expect;
 const fs = require('fs');
+const os = require('os');
+const process = require('process');
 const td = require('testdouble');
 const XStreem = require('../index');
 
@@ -29,7 +31,7 @@ describe('XStreem', () => {
 		it('should create a file descriptor for writing', () => {
 			const eventstream = new XStreem();
 			expect(eventstream.writeDescriptor).to.equal(null);
-			return eventstream.add({ event: 'testevent' })
+			return eventstream.add({ event: 'testevent' }, { resolvePosition: false } )
 				.then(() => {
 					// File descriptors are numbers:
 					expect(eventstream.writeDescriptor).to.be.a('number');
@@ -41,12 +43,13 @@ describe('XStreem', () => {
 			return eventstream.add({ event: 'testevent' })
 				.then(() => {
 					const content = fs.readFileSync(eventstream.filename, 'utf8');
-					expect(content).to.equal('{"event":"testevent"}\n');
+					expect(content).to.contain('{"event":"testevent"}');
 				})
 				.then(() => eventstream.add({ event: 'another testevent' }))
 				.then(() => {
 					const content = fs.readFileSync(eventstream.filename, 'utf8');
-					expect(content).to.equal('{"event":"testevent"}\n{"event":"another testevent"}\n');
+					expect(content).to.contain('{"event":"testevent"}');
+					expect(content).to.contain('{"event":"another testevent"}');
 				})
 		});
 
@@ -85,13 +88,13 @@ describe('XStreem', () => {
 			eventstream.listen(0, cb);
 			expect(eventstream._listeners.length).to.equal(1);
 			eventstream.removeAllListeners();
-			expect(eventstream._listeners.length).to.equal(0);
+			expect(eventstream._listeners.filter(listener => !listener.deleted).length).to.equal(0);
 		});
 	});
 
 	describe('removeListener()', () => {
 		it('should remove the specified listener', function() {
-			this.timeout(10000);
+			this.timeout(20000);
 
 			const log = [];
 			const listener0 = (pos, event) => { log.push([ 0, pos, event ]); }; 
@@ -102,7 +105,7 @@ describe('XStreem', () => {
 			const listener1remover = () => { eventstream.removeListener(listener1); eventstream.removeListener(listener1remover); };
 			const listener2remover = () => { eventstream.removeListener(listener2); eventstream.removeListener(listener2remover); };
 
-			const eventstream = new XStreem();
+			const eventstream = new XStreem(null);
 
 			eventstream.listen(0, listener0);
 			eventstream.listen(0, listener1);
@@ -292,7 +295,7 @@ describe('XStreem', () => {
 
 					let events = '';
 					for (let i = 0; i <= 9999; i++) {
-						events = events + '{ "event": "testevent", "nr": ' + i + ' }' + "\n";
+						events = events + '{ "e": { "event": "testevent", "nr": ' + i + ' }}' + "\n";
 					}
 					fs.appendFile(eventstream.filename, events, err => { if (err) reject(err); });
 	
@@ -353,6 +356,26 @@ describe('XStreem', () => {
 						]);
 						eventstream.removeAllListeners();
 					});
+			});
+
+			it('should have metadata', () => {
+				const eventstream = new XStreem(null);
+				return new Promise((resolve, reject) => {
+					eventstream.listen(0, (pos, event, metadata) => {
+						resolve({ pos, event, metadata });
+					});
+					eventstream.add({ test: 'abc' });
+				})
+					.then(({ pos, event, metadata }) => {
+						expect(metadata.checksum).to.be.a('string');
+						expect(metadata.host).to.equal(os.hostname());
+						expect(metadata.nonce).to.be.a('string');
+						expect(metadata.pid).to.equal(process.pid);
+						expect((new Date().getTime()) - metadata.time).to.be.below(2000);
+
+						eventstream.removeAllListeners();
+					});
+
 			});
 
 		})

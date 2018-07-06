@@ -1,6 +1,12 @@
+const crypto = require('crypto');
+const disposablefile = require('disposablefile');
 const fs = require('fs');
 const indicesOf = require('indicesof');
-const disposablefile = require('disposablefile');
+const os = require('os');
+const process = require('process');
+
+const hostname = os.hostname();
+const pid = process.pid;
 
 class XStreem {
 
@@ -28,29 +34,72 @@ class XStreem {
 		this.pollInterval = null;
 	}
 
-	add(event) {
+	add(event, options) {
+		const defaultOptions = { resolvePosition: true };
+		options = {...defaultOptions,  ...(options || {})};
+
 		this._ensureWriteDescriptor();
 		return new Promise((resolve, reject) => {
-			fs.write(this.writeDescriptor, JSON.stringify(event) + "\n", (err, written, src) => {
+			
+			const time = new Date().getTime();
+			const nonce = crypto.randomBytes(16).toString('hex');
+			const fullEvent = { e: event, h: hostname, n: nonce, p: pid, t: time };
+			const fullEventJson = JSON.stringify(fullEvent);
+			const hash = crypto.createHash('sha256').update(fullEventJson, 'utf8').digest('hex');
+			const fullEventJsonPlusChecksum = fullEventJson.replace(/^{/, '{"c":"' + hash + '",');
+
+			if (options.resolvePosition) {
+
+				const eventListener = (pos, event, metadata) => {
+					if (this.debug) this.debug('.add() listener waiting for checksum: ' + hash);
+					if (metadata.checksum === hash) {
+						this.removeListener(eventListener);
+						if (this.debug) this.debug('.add() resolves position: ' + pos);
+						resolve(pos);
+					}
+				};
+				this.listen(this.readPosition, eventListener, true);
+
+			}
+
+			fs.write(this.writeDescriptor, fullEventJsonPlusChecksum + '\n', (err, written, src) => {
 
 				if (err) {
 					if (this.debug) this.debug('Error writing event to log.');
 					return reject(err);
 				}
 
-				if (this.debug) this.debug('Successfully wrote event to log.');
+				if (this.debug) this.debug('Successfully wrote event to log. Checksum: ' + hash);
 				
-				resolve();
-				
+				if (!options.resolvePosition) {
+					resolve();
+				}
 			});
 		});
 	}
 
 	removeListener(cb) {
+
+		// Listeners might be removed from listener callbacks, so we dont want to delete the listeners immediately,
+		// because then we are altering the array while looping through it (in _poll). So, we mark the listeners as
+		// deleted and do the listeners clean up later.
+
+		this._listeners.forEach((listener, index) => { if (listener.cb === cb) { listener.deleted = true; } });
+		setImmediate(() => this._listenersCleanUp());
+	}
+
+	removeAllListeners() {
+		this._listeners.forEach((listener, index) => { if (listener.internal !== true) { listener.deleted = true; } });
+		setImmediate(() => this._listenersCleanUp());
+	}
+
+	_listenersCleanUp() {
 		const indices = [];
-		this._listeners.forEach((listener, index) => { if (listener.cb === cb) { indices.push(index); } });
+		this._listeners.forEach((listener, index) => { if (listener.deleted) { indices.push(index); } });
+
 		indices.sort((a, b) => b - a);
-		indices.forEach(index => {
+		indices.forEach(index => {	
+			if (this.debug) this.debug('Removed listener on index ' + index + '. - ' + this._listeners.length + ' listeners still listening.');
 			this._listeners.splice(index, 1);
 		});
 		if (this._listeners.length === 0 && this.pollInterval !== null) {
@@ -59,17 +108,9 @@ class XStreem {
 		}
 	}
 
-	removeAllListeners() {
-		if (this.pollInterval !== null) {
-			clearInterval(this.pollInterval);
-			this.pollInterval = null;
-		}
-		this._listeners.length = 0;
-	}
-
-	listen(pos, cb) {
+	listen(pos, cb, internal) {
 		this._ensureFileDescriptors()
-		this._listeners.push({ pos, cb });
+		this._listeners.push({ pos, cb, internal: internal ? true : false });
 		if (this.pollInterval === null) {
 			this.pollInterval = setInterval(() => this._poll(), 1000);
 		}
@@ -78,7 +119,13 @@ class XStreem {
 			this._restartReadDescriptor();
 		}
 
-		if (this.debug) this.debug('Successfully added event listener from pos ' + pos);;
+		if (this.debug) {
+			if (internal) {
+				this.debug('Successfully added internal event listener (at index ' + (this._listeners.length - 1) + ') from pos ' + pos);
+			} else {
+				this.debug('Successfully added event listener (at index ' + (this._listeners.length - 1) + ') from pos ' + pos);
+			}
+		}
 		setImmediate(() => this._poll());
 	}
 
@@ -138,7 +185,7 @@ class XStreem {
 			this.bufferBytePos += bytesRead;
 			const events = this._parseBufParts(this.buffer, "\n", this.bufferBytePos);
 			if (events.length > 0) {
-				if (this.debug) this.debug('Got ' + events.length + ' event(s).');
+				if (this.debug) this.debug('Got ' + events.length + ' event(s):', events.toString());
 				this.bufferBytePos = this.bufferBytePos - events.reduce((acc, curr) => acc + curr.length, events.length);
 				for (let event of events) {
 
@@ -154,11 +201,18 @@ class XStreem {
 						eventData = JSON.parse(eventStr);
 					} catch (err) {
 						// Could not JSON parse the event string:
-						eventData = eventStr;
+						eventData = { e: eventStr };
 					}
 
+					if (typeof eventData.e === 'undefined') {
+						eventData = { e: eventData };
+					}
+
+					if (this.debug) this.debug('Looping through ' + this._listeners.length + ' listeners.');
 					for (let listener of this._listeners) {
-						if (listener.pos <= this.readPosition) {
+						if (listener.deleted) {
+							if (this.debug) this.debug('Listener marked as deleted.');
+						} else if (listener.pos <= this.readPosition) {
 							if (this.debug) this.debug('Calling listener callback for event#' + this.readPosition + '.');
 							listener.pos++;
 
@@ -167,12 +221,26 @@ class XStreem {
 							// Just cloning (i.e. {...eventData}) would not do a deep clone,
 							// but JSON.parse(JSON.stringify(eventData)) does:
 
-							listener.cb(this.readPosition, JSON.parse(JSON.stringify(eventData)));
+							let clonedEventData = JSON.parse(JSON.stringify(eventData));
+							const response = listener.cb(
+								this.readPosition,
+								clonedEventData.e,
+								{
+									checksum: clonedEventData.c,
+									host: clonedEventData.h,
+									nonce: clonedEventData.n,
+									pid: clonedEventData.p,
+									time: clonedEventData.t
+								}
+							);
+							if (this.debug) this.debug('Listener callback responded with', response);
 
 							if (prevrd !== this.readDescriptor) {
-								 // _restartReadDescriptor() did run. Lets not continue this loop.
+								if (this.debug) this.debug('_restartReadDescriptor() did run. Lets not continue this listener loop.');
 								break;
 							}
+						} else {
+							if (this.debug) this.debug('Listener at position ' + listener.pos + ', but we are at position ' + this.readPosition);
 						}
 					}
 					if (prevrd !== this.readDescriptor) {
