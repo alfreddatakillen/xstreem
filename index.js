@@ -40,19 +40,14 @@ class XStreem {
 
 		this._ensureWriteDescriptor();
 		return new Promise((resolve, reject) => {
-			
-			const time = new Date().getTime();
-			const nonce = crypto.randomBytes(16).toString('hex');
-			const fullEvent = { e: event, h: hostname, n: nonce, p: pid, t: time };
-			const fullEventJson = JSON.stringify(fullEvent);
-			const hash = crypto.createHash('sha256').update(fullEventJson, 'utf8').digest('hex');
-			const fullEventJsonPlusChecksum = fullEventJson.replace(/^{/, '{"c":"' + hash + '",');
+
+			let { hash, time, nonce, json } = this._generateEventEntry(event);
 
 			if (options.resolvePosition) {
 
 				const eventListener = (pos, event, metadata) => {
 					if (this.debug) this.debug('.add() listener waiting for checksum: ' + hash);
-					if (metadata.checksum === hash) {
+					if (metadata.checksum === hash && metadata.host === hostname && metadata.nonce === nonce && metadata.pid === pid && metadata.time === time) {
 						this.removeListener(eventListener);
 						if (this.debug) this.debug('.add() resolves position: ' + pos);
 						resolve(pos);
@@ -62,7 +57,7 @@ class XStreem {
 
 			}
 
-			fs.write(this.writeDescriptor, fullEventJsonPlusChecksum + '\n', (err, written, src) => {
+			fs.write(this.writeDescriptor, json + '\n', (err, written, src) => {
 
 				if (err) {
 					if (this.debug) this.debug('Error writing event to log.');
@@ -91,6 +86,16 @@ class XStreem {
 	removeAllListeners() {
 		this._listeners.forEach((listener, index) => { if (listener.internal !== true) { listener.deleted = true; } });
 		setImmediate(() => this._listenersCleanUp());
+	}
+
+	_generateEventEntry(event) {
+		const time = new Date().getTime();
+		const nonce = crypto.randomBytes(16).toString('hex');
+		const fullEvent = { e: event, h: hostname, n: nonce, p: pid, t: time };
+		const fullEventJson = JSON.stringify(fullEvent);
+		const hash = crypto.createHash('sha256').update(fullEventJson, 'utf8').digest('hex');
+		const fullEventJsonPlusChecksum = fullEventJson.replace(/^{/, '{"c":"' + hash + '",');
+		return { hash, time, nonce, json: fullEventJsonPlusChecksum };
 	}
 
 	_listenersCleanUp() {
@@ -194,18 +199,30 @@ class XStreem {
 					try {
 						eventStr = event.toString();
 					} catch (err) {
-						// Could not convert event to string:
-						eventStr = 'null';
-					}
-					try {
-						eventData = JSON.parse(eventStr);
-					} catch (err) {
-						// Could not JSON parse the event string:
-						eventData = { e: eventStr };
+						eventData = {
+							e: null,
+							error: 'Encoding failure.'
+						};
 					}
 
-					if (typeof eventData.e === 'undefined') {
-						eventData = { e: eventData };
+					if (!eventData) {
+						try {
+							eventData = JSON.parse(eventStr);
+						} catch (err) {
+							// Could not JSON parse the event string:
+							eventData = {
+								e: null,
+								error: 'Can not JSON parse event data.'
+							};
+						}
+					}
+
+					if (!eventData.error) {
+						const hash = crypto.createHash('sha256').update(eventStr.replace(/^{"c":"[^"]+",/, '{'), 'utf8').digest('hex');
+						if (hash !== eventData.c) {
+							eventData.e = null;
+							eventData.error = 'Checksum mismatch.';
+						}
 					}
 
 					if (this.debug) this.debug('Looping through ' + this._listeners.length + ' listeners.');
@@ -221,17 +238,20 @@ class XStreem {
 							// Just cloning (i.e. {...eventData}) would not do a deep clone,
 							// but JSON.parse(JSON.stringify(eventData)) does:
 
-							let clonedEventData = JSON.parse(JSON.stringify(eventData));
+							const metadata = JSON.parse(JSON.stringify({
+								checksum: eventData.c,
+								host: eventData.h,
+								nonce: eventData.n,
+								pid: eventData.p,
+								raw: eventStr,
+								time: eventData.t
+							}));
+							if (eventData.error) metadata.error = new Error(eventData.error);
+
 							const response = listener.cb(
 								this.readPosition,
-								clonedEventData.e,
-								{
-									checksum: clonedEventData.c,
-									host: clonedEventData.h,
-									nonce: clonedEventData.n,
-									pid: clonedEventData.p,
-									time: clonedEventData.t
-								}
+								JSON.parse(JSON.stringify(eventData.e)),
+								metadata
 							);
 							if (this.debug) this.debug('Listener callback responded with', response);
 

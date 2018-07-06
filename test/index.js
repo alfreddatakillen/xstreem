@@ -297,34 +297,39 @@ describe('XStreem', () => {
 					})
 			});
 
-			it('should pass the string as an event if string is not JSON-parse:able', function() {
+			it('should return error event if string is not JSON-parse:able', function() {
+				const str = 'this is not JSON-parseable';
 				const eventstream = new XStreem(null);
 				return new Promise((resolve, reject) => {
-					eventstream.listen(0, (pos, event) => {
-						resolve({ pos, event });
+					eventstream.listen(0, (pos, event, metadata) => {
+						resolve({ pos, event, metadata });
 					});
-					fs.appendFile(eventstream.filename, "this is not JSON-parseable\n", err => {
+					fs.appendFile(eventstream.filename, str + "\n", err => {
 						if (err) reject(err);
 					});
 				})
-					.then(({ pos, event }) => {
-						expect(event).to.equal('this is not JSON-parseable');
+					.then(({ pos, event, metadata }) => {
+						expect(event).to.equal(null);
+						expect(metadata.error).to.be.instanceof(Error);
+						expect(metadata.raw).to.equal(str);
 
 						eventstream.removeAllListeners();
 					});
 			});
 
 			it('should handle splitted reads of an event', function() {
-				this.timeout(6000);
+				this.timeout(10000);
 				const eventstream = new XStreem(null);
 				return new Promise((resolve, reject) => {
 					eventstream.listen(0, (pos, event) => {
 						resolve({ pos, event });
 					});
-					setTimeout(() => fs.appendFile(eventstream.filename, "{", err => { if (err) reject(err); }), 1000);
-					setTimeout(() => fs.appendFile(eventstream.filename, '"split":', err => { if (err) reject(err); }), 2000);
-					setTimeout(() => fs.appendFile(eventstream.filename, '"works!"', err => { if (err) reject(err); }), 3000);
-					setTimeout(() => fs.appendFile(eventstream.filename, "}\n", err => { if (err) reject(err); }), 4000);
+					const event = eventstream._generateEventEntry({ split: 'works!' }).json + "\n";
+					console.log(event);
+					setTimeout(() => fs.appendFile(eventstream.filename, event.substr(0, 3), err => { if (err) reject(err); }), 1000);
+					setTimeout(() => fs.appendFile(eventstream.filename, event.substr(3, 5), err => { if (err) reject(err); }), 2000);
+					setTimeout(() => fs.appendFile(eventstream.filename, event.substr(8, 20), err => { if (err) reject(err); }), 3000);
+					setTimeout(() => fs.appendFile(eventstream.filename, event.substr(28), err => { if (err) reject(err); }), 4000);
 				})
 					.then(({ pos, event }) => {
 						expect(pos).to.equal(0);
@@ -349,7 +354,7 @@ describe('XStreem', () => {
 
 					let events = '';
 					for (let i = 0; i <= 9999; i++) {
-						events = events + '{ "e": { "event": "testevent", "nr": ' + i + ' }}' + "\n";
+						events = events + eventstream._generateEventEntry({ type: 'testevent', nr: i }).json + "\n";
 					}
 					fs.appendFile(eventstream.filename, events, err => { if (err) reject(err); });
 	
