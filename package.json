@@ -1,6 +1,6 @@
 {
   "name": "xstreem",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "Local event store (Node.js) module for event sourcing",
   "main": "index.js",
   "scripts": {
