@@ -325,7 +325,6 @@ describe('XStreem', () => {
 						resolve({ pos, event });
 					});
 					const event = eventstream._generateEventEntry({ split: 'works!' }).json + "\n";
-					console.log(event);
 					setTimeout(() => fs.appendFile(eventstream.filename, event.substr(0, 3), err => { if (err) reject(err); }), 1000);
 					setTimeout(() => fs.appendFile(eventstream.filename, event.substr(3, 5), err => { if (err) reject(err); }), 2000);
 					setTimeout(() => fs.appendFile(eventstream.filename, event.substr(8, 20), err => { if (err) reject(err); }), 3000);
