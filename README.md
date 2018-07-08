@@ -41,12 +41,44 @@ Where `eventobj` is any (JSON stringable) object that represents an event.
 `options` is an object with options. Available options are:
 
 * `resolvePosition` defaults to `true`. Set to false if you do want the event's position as resolved result.
+* `returnMeta` defaults to `false`. Set to true if you want the event metadata to be returned in an object together with the `Promise`.
 
-Returns a promise which resolves on successful write to the filesystem.
+If `returnMeta` is `false` (which is default), a `Promise` is returned, which will resolve on successful write to the filesystem.
 
-If the `resolvePosition` option is `true` (which is default), the position of the new event is returned on resolve.
-Note, that resolving the position is slower and requires more resources, so whenever you do not need the the position,
+```
+eventstream.add({ type: 'myEvent' })
+    .then(pos => {
+        // The position of the new event is in the pos variable.
+    });
+```
+
+If the `resolvePosition` option is `true` (which is default), the position of the new event will be the resolved value from the returned `Promise`.
+Note, that resolving the position is slow and requires more resources, so whenever you do not need the the position,
 you should run `.add()` with the `resolvePosition` option set to `false`.
+
+```
+eventstream.add({ type: 'myEvent' }, { resolvePosition: false })
+    .then(() => {
+        // Now we don't have the position,
+        // but that's okay since this resolved much faster and with fewer resources.
+    });
+```
+
+If the `returnMeta` option is `true`, an object will be returned with the `Promise` together with the event metadata:
+
+```
+const newEvent = eventstream.add({ type: 'myEvent' }, { returnMeta: true });
+
+// newEvent is an object which has those properties:
+// {
+//     promise,     // The Promise object which will resolve on successful write.
+//     checksum,    // A string checksum of the new event.
+//     time,        // A unix epoch timestamp (number) of the new event.
+//     nonce,       // A random string value.
+//     host,        // A string which contains the hostname of the machine which created this event.
+//     pid          // A number which is the process id on the machine which created this event.
+// }
+```
 
 ### `.listen(startPos, callbackFn)`
 
@@ -100,6 +132,7 @@ There is a hard limit of 1 megabyte (as JSON serialized object), which will make
 Changelog
 ---------
 
+* `2.1.0` - Added support for the `returnMeta` option on `.add()`.
 * `2.0.0` - Metadata on events. New log format (because of metadata). `.add()` resolves the position of the new event.
 * `1.2.0` - Added `.removeListener()` function.
 * `1.1.1` - Better clean up solution for temporary logs.

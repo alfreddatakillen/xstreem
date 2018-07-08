@@ -35,13 +35,14 @@ class XStreem {
 	}
 
 	add(event, options) {
-		const defaultOptions = { resolvePosition: true };
+		const defaultOptions = { resolvePosition: true, returnMeta: false };
 		options = {...defaultOptions,  ...(options || {})};
 
 		this._ensureWriteDescriptor();
-		return new Promise((resolve, reject) => {
 
-			let { hash, time, nonce, json } = this._generateEventEntry(event);
+		let { hash, time, nonce, json } = this._generateEventEntry(event);
+
+		const promise = new Promise((resolve, reject) => {
 
 			if (options.resolvePosition) {
 
@@ -71,6 +72,19 @@ class XStreem {
 				}
 			});
 		});
+
+		if (options.returnMeta) {
+			return {
+				promise,
+				checksum: hash,
+				time,
+				nonce,
+				host: hostname,
+				pid
+			}
+		} else {
+			return promise;
+		}
 	}
 
 	removeListener(cb) {

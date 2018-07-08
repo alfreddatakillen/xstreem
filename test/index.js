@@ -107,6 +107,21 @@ describe('XStreem', () => {
 				})
 		});
 
+		it('can return the event metadata', () => {
+			const eventstream = new XStreem();
+			let { promise, checksum, time, nonce, host, pid } = eventstream.add({ type: 'testEvent' }, { returnMeta: true });
+			expect(promise).to.be.an.instanceof(Promise);
+			expect(checksum).to.be.a('string');
+			expect(time).to.be.a('number');
+			expect(nonce).to.be.a('string');
+			expect(host).to.be.a('string');
+			expect(pid).to.be.a('number');
+			return promise
+				.then(pos => {
+					expect(pos).to.be.a('number');
+				});
+		});
+
 	});
 
 	describe('listen()', () => {
