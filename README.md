@@ -128,6 +128,7 @@ Event sizes
 
 Events should not be too large.
 There is a hard limit of 1 megabyte (as JSON serialized object), which will make this module hang/crash/flip. :)
+(If you are even close to 1 megabyte sized events, you are probably doing something completely crazy that you are not supposed to do.)
 
 Changelog
 ---------
