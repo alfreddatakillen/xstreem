@@ -149,6 +149,80 @@ describe('XStreem', () => {
 
 	});
 
+	describe('pause() and resume()', () => {
+		it('should pause and resume immediately', function() {
+			this.timeout(10000);
+			const eventstream = new XStreem();
+			return eventstream.add({ event: 'testevent' })
+				.then(pos => {
+					expect(pos).to.equal(0);
+					expect(eventstream.readPosition).to.equal(1);
+					return eventstream.add({ event: 'testevent' });
+				})
+				.then(pos => {
+					expect(pos).to.equal(1);
+					expect(eventstream.readPosition).to.equal(2);
+					eventstream.pause();
+					return eventstream.add({ event: 'testevent' }, { resolvePosition: false } )
+						.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+						.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+						.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+						.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+						.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+						.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+						.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+						.then(() => new Promise((resolve, reject) => setTimeout(resolve, 1000)));
+				})
+				.then(() => {
+					expect(eventstream.readPosition).to.equal(2);
+					eventstream.resume();
+					return new Promise((resolve, reject) => setTimeout(resolve, 1000));
+				})
+				.then(() => {
+					expect(eventstream.readPosition).to.equal(10);
+				})
+				.then(() => {
+					setTimeout(
+						() =>
+							eventstream.add({ event: 'testevent' }, { resolvePosition: false } )
+								.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+								.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+								.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } ))
+								.then(() => eventstream.add({ event: 'testevent' }, { resolvePosition: false } )),
+						500
+					);
+					return new Promise((resolve, reject) => {
+						eventstream.listen(10, (pos, event) => {
+							if (pos === 10) {
+								eventstream.pause();
+								resolve();
+							}
+						});
+					});
+				})
+				.then(() => {
+					return new Promise((resolve, reject) => setTimeout(resolve, 500));
+				})
+				.then(() => {
+					expect(eventstream.readPosition).to.equal(11);
+					
+					const promise = new Promise((resolve, reject) => {
+						eventstream.listen(14, (pos, event) => {
+							if (pos === 14) resolve();
+						});
+					});
+
+					eventstream.resume();
+					return promise;
+				})
+				.then(() => {
+					expect(eventstream.readPosition).to.equal(15);
+					eventstream.removeAllListeners();
+				});
+		});
+
+	})
+
 	describe('removeAllListeners()', () => {
 		it('should remove all listeners', () => {
 			const cb = () => { };

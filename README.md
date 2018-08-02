@@ -88,6 +88,13 @@ The `callbackFn` should be a function. It will be called like this:
 `callbackFn(pos, eventobj)` where `eventobj` is the object representing an event,
 and `pos` is that event's position in the event stream.
 
+### `.pause()` and `.resume()`
+
+The `.pause()` function will temporarily stop further events from being read (listened for). You can still add new events.
+When you want to start reading events again, just do `.resume()`.
+
+Note, if `.pause()` is called multiple times, you have to call `.resume()` the same number of times for it to start processing events again.
+
 ### `.removeListener(callbackFn)`
 
 Removes the `callbackFn` listener.

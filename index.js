@@ -14,7 +14,7 @@ class XStreem {
 
 		// Use temporary file if none was given:
 		if (!filename) {
-			this.filename = disposablefile.fileSync({ prefix: 'xstreem-' })
+			this.filename = disposablefile.fileSync({ prefix: 'xstreem-' });
 		} else {
 			this.filename = filename;
 		}
@@ -32,6 +32,19 @@ class XStreem {
 
 		this.pollLock = false;
 		this.pollInterval = null;
+
+		this.events = [];
+
+		this._paused = 0;
+	}
+
+	pause() {
+		this._paused++;
+	}
+
+	resume() {
+		if (this._paused > 0) this._paused--;
+		if (this._paused === 0) setImmediate(() => this._poll());
 	}
 
 	add(event, options) {
@@ -162,6 +175,7 @@ class XStreem {
 		fs.close(this.readDescriptor, () => {});
 		this.readDescriptor = newDescriptor;
 		this.readPosition = 0;
+		this.events.length = 0;
 		this.bufferBytePos = 0;
 		if (this.debug) this.debug('Restarted file read descriptor: ' + this.filename);
 	}
@@ -187,8 +201,96 @@ class XStreem {
 		return blobs;
 	}
 
+	_callListeners(eventData, eventStr) {
+		const prevrd = this.readDescriptor;
+		if (this.debug) this.debug('Looping through ' + this._listeners.length + ' listeners.');
+		for (let listener of this._listeners) {
+			if (listener.deleted) {
+				if (this.debug) this.debug('Listener marked as deleted.');
+			} else if (listener.pos <= this.readPosition) {
+
+				this._callListener(listener, eventData, eventStr);
+			} else {
+				if (this.debug) this.debug('Listener at position ' + listener.pos + ', but we are at position ' + this.readPosition);
+			}
+			if (prevrd !== this.readDescriptor) return;
+		}
+	}
+
+	_callListener(listener, eventData, eventStr) {
+		if (this.debug) this.debug('Calling listener callback for event#' + this.readPosition + '.');
+		listener.pos++;
+
+		// We do a deep clone of the eventData object each time, to make sure that one callback does
+		// not mess upp the data for the rest of the callbacks.
+		// Just cloning (i.e. {...eventData}) would not do a deep clone,
+		// but JSON.parse(JSON.stringify(eventData)) does:
+
+		const metadata = JSON.parse(JSON.stringify({
+			checksum: eventData.c,
+			host: eventData.h,
+			nonce: eventData.n,
+			pid: eventData.p,
+			raw: eventStr,
+			time: eventData.t
+		}));
+		if (eventData.error) metadata.error = new Error(eventData.error);
+
+		const response = listener.cb(
+			this.readPosition,
+			JSON.parse(JSON.stringify(eventData.e)),
+			metadata
+		);
+		if (this.debug) this.debug('Listener callback responded with', response);
+	}
+
+	_processEvent() {
+		const event = this.events.shift();
+		
+		const prevrd = this.readDescriptor;
+
+		let eventStr;
+		let eventData;
+		try {
+			eventStr = event.toString();
+		} catch (err) {
+			eventData = {
+				e: null,
+				error: 'Encoding failure.'
+			};
+		}
+
+		if (!eventData) {
+			try {
+				eventData = JSON.parse(eventStr);
+			} catch (err) {
+				// Could not JSON parse the event string:
+				eventData = {
+					e: null,
+					error: 'Can not JSON parse event data.'
+				};
+			}
+		}
+
+		if (!eventData.error) {
+			const hash = crypto.createHash('sha256').update(eventStr.replace(/^{"c":"[^"]+",/, '{'), 'utf8').digest('hex');
+			if (hash !== eventData.c) {
+				eventData.e = null;
+				eventData.error = 'Checksum mismatch.';
+			}
+		}
+
+		this._callListeners(eventData, eventStr);
+
+		if (prevrd === this.readDescriptor) {
+			this.readPosition++;
+		}
+	}
+
 	_poll() {
 		if (this.readDescriptor === null) return;
+
+		if (this._paused > 0) return;
 
 		if (this.pollLock) return;
 		this.pollLock = true;
@@ -199,93 +301,26 @@ class XStreem {
 			
 			if (prevrd !== this.readDescriptor) return this.pollLock = false; // _restartReadDescriptor() did run.
 
-			if (bytesRead === 0) return this.pollLock = false;
-			if (this.debug) this.debug('Read ' + bytesRead + ' bytes.');
-			this.bufferBytePos += bytesRead;
-			const events = this._parseBufParts(this.buffer, "\n", this.bufferBytePos);
-			if (events.length > 0) {
-				if (this.debug) this.debug('Got ' + events.length + ' event(s):', events.toString());
-				this.bufferBytePos = this.bufferBytePos - events.reduce((acc, curr) => acc + curr.length, events.length);
-				for (let event of events) {
+			if (bytesRead > 0) {
+				if (this.debug) this.debug('Read ' + bytesRead + ' bytes.');
+				this.bufferBytePos += bytesRead;
+				const events = this._parseBufParts(this.buffer, "\n", this.bufferBytePos);
+				if (events.length > 0) {
+					if (this.debug) this.debug('Got ' + events.length + ' event(s):', events.toString());
+					this.bufferBytePos = this.bufferBytePos - events.reduce((acc, curr) => acc + curr.length, events.length);
 
-					let eventStr;
-					let eventData;
-					try {
-						eventStr = event.toString();
-					} catch (err) {
-						eventData = {
-							e: null,
-							error: 'Encoding failure.'
-						};
+					for (let event of events) {
+						this.events.push(event);
 					}
-
-					if (!eventData) {
-						try {
-							eventData = JSON.parse(eventStr);
-						} catch (err) {
-							// Could not JSON parse the event string:
-							eventData = {
-								e: null,
-								error: 'Can not JSON parse event data.'
-							};
-						}
-					}
-
-					if (!eventData.error) {
-						const hash = crypto.createHash('sha256').update(eventStr.replace(/^{"c":"[^"]+",/, '{'), 'utf8').digest('hex');
-						if (hash !== eventData.c) {
-							eventData.e = null;
-							eventData.error = 'Checksum mismatch.';
-						}
-					}
-
-					if (this.debug) this.debug('Looping through ' + this._listeners.length + ' listeners.');
-					for (let listener of this._listeners) {
-						if (listener.deleted) {
-							if (this.debug) this.debug('Listener marked as deleted.');
-						} else if (listener.pos <= this.readPosition) {
-							if (this.debug) this.debug('Calling listener callback for event#' + this.readPosition + '.');
-							listener.pos++;
-
-							// We do a deep clone of the eventData object each time, to make sure that one callback does
-							// not mess upp the data for the rest of the callbacks.
-							// Just cloning (i.e. {...eventData}) would not do a deep clone,
-							// but JSON.parse(JSON.stringify(eventData)) does:
-
-							const metadata = JSON.parse(JSON.stringify({
-								checksum: eventData.c,
-								host: eventData.h,
-								nonce: eventData.n,
-								pid: eventData.p,
-								raw: eventStr,
-								time: eventData.t
-							}));
-							if (eventData.error) metadata.error = new Error(eventData.error);
-
-							const response = listener.cb(
-								this.readPosition,
-								JSON.parse(JSON.stringify(eventData.e)),
-								metadata
-							);
-							if (this.debug) this.debug('Listener callback responded with', response);
-
-							if (prevrd !== this.readDescriptor) {
-								if (this.debug) this.debug('_restartReadDescriptor() did run. Lets not continue this listener loop.');
-								break;
-							}
-						} else {
-							if (this.debug) this.debug('Listener at position ' + listener.pos + ', but we are at position ' + this.readPosition);
-						}
-					}
-					if (prevrd !== this.readDescriptor) {
-						 // _restartReadDescriptor() did run. Lets not continue this loop.
-						break;
-					}
-					this.readPosition++;
 				}
 			}
+
+			while (this.events.length > 0 && prevrd === this.readDescriptor && this._paused === 0) {
+				this._processEvent();
+			}
+
 			this.pollLock = false;
-			if (bytesRead > 0) setImmediate(() => this._poll());
+			if (bytesRead > 0 || this.events.length > 0) setImmediate(() => this._poll());
 		});
 
 	}
