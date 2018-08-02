@@ -95,6 +95,9 @@ When you want to start reading events again, just do `.resume()`.
 
 Note, if `.pause()` is called multiple times, you have to call `.resume()` the same number of times for it to start processing events again.
 
+Important: If you do an `.add()` without setting `resolvePosition` set to `false` while the event stream is paused,
+the returned Promise will not resolve until you resume the stream.
+
 ### `.removeListener(callbackFn)`
 
 Removes the `callbackFn` listener.
