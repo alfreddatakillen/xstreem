@@ -143,6 +143,7 @@ There is a hard limit of 1 megabyte (as JSON serialized object), which will make
 Changelog
 ---------
 
+* `2.2.1` - Speed improvement.
 * `2.2.0` - Added `.pause()` and `.resume()`.
 * `2.1.0` - Added support for the `returnMeta` option on `.add()`.
 * `2.0.0` - Metadata on events. New log format (because of metadata). `.add()` resolves the position of the new event.
