@@ -83,6 +83,8 @@ class XStreem {
 				if (!options.resolvePosition) {
 					resolve();
 				}
+
+				setImmediate(() => this._poll());
 			});
 		});
 
