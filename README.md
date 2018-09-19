@@ -160,6 +160,7 @@ There is a hard limit of 1 megabyte (as JSON serialized object), which will make
 Changelog
 ---------
 
+* `2.3.1` - Fixed bug when removing drain listeners.
 * `2.3.0` - Added support for drain listeners.
 * `2.2.1` - Speed improvement.
 * `2.2.0` - Added `.pause()` and `.resume()`.

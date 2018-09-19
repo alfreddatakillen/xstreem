@@ -679,6 +679,105 @@ describe('XStreem', () => {
 
 		});
 
+		it('should be able to remove a listener', function (done) {
+
+			this.timeout(20000);
+
+			const eventStream = new XStreem();
+
+			let eventCounter = 0;
+			let actions = '';
+			const onDrainD = () => actions += 'D';
+			const onDrainE = () => actions += 'E';
+			const onDrainF = () => actions += 'F';
+			const onDrainG = () => actions += 'G';
+			eventStream.onDrain(onDrainD);
+			eventStream.onDrain(onDrainE);
+			eventStream.onDrain(onDrainF);
+			eventStream.onDrain(onDrainG);
+
+			eventStream.listen(0, (pos, event) => {
+				actions += '' + event.testEvent;
+			});
+
+			function addEvent() {
+				eventCounter++;
+				eventStream.add({ testEvent: eventCounter });
+				if (eventCounter == 2) {
+					eventStream.removeOnDrainListener(onDrainF);
+				}
+				if (eventCounter == 3) {
+					eventStream.removeOnDrainListener(onDrainD);
+				}
+				if (eventCounter == 4) {
+					eventStream.removeOnDrainListener(onDrainE);
+				}
+				if (eventCounter == 5) {
+					eventStream.removeOnDrainListener(onDrainG);
+				}
+				if (eventCounter < 6) {
+					setTimeout(addEvent, 300);
+				} else {
+					try {
+						// Event 6 should not have happened yet:
+						expect(actions).to.equal('1DEFG2DEG3EG4G5');
+						eventStream.removeAllListeners();
+						done();
+					} catch (err) {
+						eventStream.removeAllListeners();
+						done(err);
+					}
+				}
+			}
+			addEvent();
+		});	
+
+		it('should be able to remove all listeners', function (done) {
+
+			this.timeout(20000);
+
+			const eventStream = new XStreem();
+
+			let eventCounter = 0;
+			let actions = '';
+			eventStream.onDrain(() => {
+				actions += 'D';
+			});
+			eventStream.onDrain(() => {
+				actions += 'E';
+			});
+			eventStream.onDrain(() => {
+				actions += 'F';
+			});
+
+			eventStream.listen(0, (pos, event) => {
+				actions += '' + event.testEvent;
+			});
+
+			function addEvent() {
+				eventCounter++;
+				eventStream.add({ testEvent: eventCounter });
+				if (eventCounter == 3) {
+					eventStream.removeAllOnDrainListeners();
+				}
+				if (eventCounter < 6) {
+					setTimeout(addEvent, 300);
+				} else {
+					try {
+						// Event 6 should not have happened yet:
+						expect(actions).to.equal('1DEF2DEF345');
+						eventStream.removeAllListeners();
+						done();
+					} catch (err) {
+						eventStream.removeAllListeners();
+						done(err);
+					}
+				}
+			}
+			addEvent();
+
+		});
+
 	});
 
 });

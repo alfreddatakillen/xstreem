@@ -144,7 +144,7 @@ class XStreem {
 		return { hash, time, nonce, json: fullEventJsonPlusChecksum };
 	}
 
-	_onDranListenersCleanUp() {
+	_onDrainListenersCleanUp() {
 		const indices = [];
 		this._onDrainListeners.forEach((listener, index) => { if (listener.deleted) { indices.push(index); } });
 
