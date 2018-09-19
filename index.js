@@ -21,7 +21,7 @@ class XStreem {
 
 		this.debug = logFn;
 
-		this._didDrain = true; // Wait until something is read before we can drain.
+		this.isDrained = true;
 
 		this._listeners = [];
 		this._onDrainListeners = [];
@@ -331,7 +331,7 @@ class XStreem {
 			if (prevrd !== this.readDescriptor) return this.pollLock = false; // _restartReadDescriptor() did run.
 
 			if (bytesRead > 0) {
-				this._didDrain = false;
+				this.isDrained = false;
 
 				if (this.debug) this.debug('Read ' + bytesRead + ' bytes.');
 				this.bufferBytePos += bytesRead;
@@ -350,9 +350,9 @@ class XStreem {
 				this._processEvent();
 			}
 
-			if (this._onDrainListeners.length > 0 && this.events.length === 0 && bytesRead === 0 && this._paused === 0 && this._didDrain === false) {
+			if (this._onDrainListeners.length > 0 && this.events.length === 0 && bytesRead === 0 && this._paused === 0 && this.isDrained === false) {
 				this.pause();
-				this._didDrain = true;
+				this.isDrained = true;
 				let resolveFirst;
 				let promise = new Promise((resolve, reject) => resolveFirst = resolve);
 				this._onDrainListeners.forEach(listener => {

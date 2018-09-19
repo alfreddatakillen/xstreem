@@ -122,6 +122,9 @@ Will remove the drain listener callback function.
 
 Will remove all drain listeners.
 
+### `.isDrained`
+
+Boolean. True if there are currently no incoming events to be processed.
 
 Optimizing
 ----------
@@ -160,6 +163,7 @@ There is a hard limit of 1 megabyte (as JSON serialized object), which will make
 Changelog
 ---------
 
+* `2.3.2` - `.isDrained` boolean is part of the public API.
 * `2.3.1` - Fixed bug when removing drain listeners.
 * `2.3.0` - Added support for drain listeners.
 * `2.2.1` - Speed improvement.
