@@ -106,6 +106,23 @@ Removes the `callbackFn` listener.
 
 Removes all listeners.
 
+### `.onDrain(callbackFn)`
+
+Adds a drain listener. `callbackFn` will run when there is no more events to
+read/process.
+
+If the `callbackFn` returns a Promise, no events will be read from the event
+stream until the Promise has resolved or rejected.
+
+### `.removeOnDrainListener(callbackFn)`
+
+Will remove the drain listener callback function.
+
+### `.removeAllOnDrainListeners()`
+
+Will remove all drain listeners.
+
+
 Optimizing
 ----------
 
@@ -143,6 +160,7 @@ There is a hard limit of 1 megabyte (as JSON serialized object), which will make
 Changelog
 ---------
 
+* `2.3.0` - Added support for drain listeners.
 * `2.2.1` - Speed improvement.
 * `2.2.0` - Added `.pause()` and `.resume()`.
 * `2.1.0` - Added support for the `returnMeta` option on `.add()`.

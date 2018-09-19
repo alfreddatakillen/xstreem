@@ -21,7 +21,10 @@ class XStreem {
 
 		this.debug = logFn;
 
+		this._didDrain = true; // Wait until something is read before we can drain.
+
 		this._listeners = [];
+		this._onDrainListeners = [];
 		this.readDescriptor = null;
 		this.writeDescriptor = null;
 
@@ -102,6 +105,20 @@ class XStreem {
 		}
 	}
 
+	onDrain(cb) {
+		this._onDrainListeners.push({ cb });
+	}
+
+	removeOnDrainListener(cb) {
+		this._onDrainListeners.forEach((listener, index) => { if (listener.cb === cb) { listener.deleted = true; } });
+		setImmediate(() => this._onDrainListenersCleanUp());
+	}
+
+	removeAllOnDrainListeners() {
+		this._onDrainListeners.forEach(listener => listener.deleted = true);
+		setImmediate(() => this._onDrainListenersCleanUp());
+	}
+
 	removeListener(cb) {
 
 		// Listeners might be removed from listener callbacks, so we dont want to delete the listeners immediately,
@@ -125,6 +142,16 @@ class XStreem {
 		const hash = crypto.createHash('sha256').update(fullEventJson, 'utf8').digest('hex');
 		const fullEventJsonPlusChecksum = fullEventJson.replace(/^{/, '{"c":"' + hash + '",');
 		return { hash, time, nonce, json: fullEventJsonPlusChecksum };
+	}
+
+	_onDranListenersCleanUp() {
+		const indices = [];
+		this._onDrainListeners.forEach((listener, index) => { if (listener.deleted) { indices.push(index); } });
+
+		indices.sort((a, b) => b - a);
+		indices.forEach(index => {	
+			this._onDrainListeners.splice(index, 1);
+		});
 	}
 
 	_listenersCleanUp() {
@@ -304,6 +331,8 @@ class XStreem {
 			if (prevrd !== this.readDescriptor) return this.pollLock = false; // _restartReadDescriptor() did run.
 
 			if (bytesRead > 0) {
+				this._didDrain = false;
+
 				if (this.debug) this.debug('Read ' + bytesRead + ' bytes.');
 				this.bufferBytePos += bytesRead;
 				const events = this._parseBufParts(this.buffer, "\n", this.bufferBytePos);
@@ -319,6 +348,20 @@ class XStreem {
 
 			while (this.events.length > 0 && prevrd === this.readDescriptor && this._paused === 0) {
 				this._processEvent();
+			}
+
+			if (this._onDrainListeners.length > 0 && this.events.length === 0 && bytesRead === 0 && this._paused === 0 && this._didDrain === false) {
+				this.pause();
+				this._didDrain = true;
+				let resolveFirst;
+				let promise = new Promise((resolve, reject) => resolveFirst = resolve);
+				this._onDrainListeners.forEach(listener => {
+					if (!listener.deleted) {
+						promise = promise.then(listener.cb).catch(err => {});
+					}
+				});
+				promise.then(() => this.resume());
+				resolveFirst();
 			}
 
 			this.pollLock = false;

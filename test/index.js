@@ -561,4 +561,124 @@ describe('XStreem', () => {
 
 	});
 
+	describe('drain listeners', () => {
+
+		it('should not be called before anything has been read', function () {
+
+			this.timeout(7000);
+
+			let callCounter = 0;
+			const eventStream = new XStreem();
+			eventStream.onDrain(() => {
+				callCounter++;
+			});
+
+			return new Promise((resolve, reject) => setTimeout(resolve, 5000))
+				.then(() => {
+					expect(callCounter).to.equal(0);
+				});
+
+		});
+
+		it('should not be called before anything has been read', function () {
+
+			this.timeout(7000);
+
+			let callCounter = 0;
+			const eventStream = new XStreem();
+			eventStream.onDrain(() => {
+				callCounter++;
+			});
+
+			return new Promise((resolve, reject) => setTimeout(resolve, 5000))
+				.then(() => {
+					expect(callCounter).to.equal(0);
+				});
+
+		});
+
+		it('should be called once after all event(s) has been read', function () {
+
+			this.timeout(7000);
+
+			let callCounter = 0;
+			const eventStream = new XStreem();
+			eventStream.onDrain(() => {
+				callCounter++;
+			});
+
+			eventStream.add({ testEvent: 123 });
+			eventStream.add({ testEvent: 123 });
+			eventStream.add({ testEvent: 123 });
+
+			return new Promise((resolve, reject) => setTimeout(resolve, 5000))
+				.then(() => {
+					expect(callCounter).to.equal(1);
+				});
+
+		});
+
+		it('should be called again after new events was added', function () {
+
+			this.timeout(7000);
+
+			let callCounter = 0;
+			const eventStream = new XStreem();
+			eventStream.onDrain(() => {
+				if (callCounter === 0) {
+					eventStream.add({ testEvent: 123 });
+					eventStream.add({ testEvent: 123 });
+					eventStream.add({ testEvent: 123 });
+				}
+				callCounter++;
+			});
+
+			eventStream.add({ testEvent: 123 });
+			eventStream.add({ testEvent: 123 });
+			eventStream.add({ testEvent: 123 });
+
+			return new Promise((resolve, reject) => setTimeout(resolve, 5000))
+				.then(() => {
+					expect(callCounter).to.equal(2);
+				});
+
+		});
+
+		it('should block new reads while drain callback is still running', function (done) {
+
+			this.timeout(20000);
+
+			const eventStream = new XStreem();
+
+			let eventCounter = 0;
+			let actions = '';
+			eventStream.onDrain(() => {
+				actions += 'D';
+				if (eventCounter === 6) {
+					try {
+						expect(actions).to.equal('1D234D56D');
+						done();
+					} catch(err) {
+						done(err);
+					}
+				}
+				return new Promise((resolve, reject) => {
+					setTimeout(resolve, 1000);
+				});
+			});
+
+			function addEvent() {
+				eventCounter++;
+				actions += '' + eventCounter;
+				eventStream.add({ testEvent: eventCounter });
+				if (eventCounter < 6) {
+					setTimeout(addEvent, 300);
+				}
+			}
+			addEvent();
+
+		});
+
+	});
+
 });
