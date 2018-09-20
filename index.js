@@ -125,12 +125,25 @@ class XStreem {
 		// because then we are altering the array while looping through it (in _poll). So, we mark the listeners as
 		// deleted and do the listeners clean up later.
 
-		this._listeners.forEach((listener, index) => { if (listener.cb === cb) { listener.deleted = true; } });
+		let listenerCounter = 0;
+		this._listeners.forEach((listener, index) => {
+			if (listener.cb === cb) {
+				listener.deleted = true;
+			} else {
+				if (!listener.internal) {
+					listenerCounter++;
+				}
+			}
+		});
+		if (listenerCounter === 0) {
+			this.isDrained = true;
+		}
 		setImmediate(() => this._listenersCleanUp());
 	}
 
 	removeAllListeners() {
 		this._listeners.forEach((listener, index) => { if (listener.internal !== true) { listener.deleted = true; } });
+		this.isDrained = true;
 		setImmediate(() => this._listenersCleanUp());
 	}
 
@@ -327,7 +340,7 @@ class XStreem {
 		const prevrd = this.readDescriptor;
 
 		fs.read(this.readDescriptor, this.buffer, this.bufferBytePos, 8192, null, (err, bytesRead, buffer) => {
-			
+
 			if (prevrd !== this.readDescriptor) return this.pollLock = false; // _restartReadDescriptor() did run.
 
 			if (bytesRead > 0) {
@@ -349,6 +362,7 @@ class XStreem {
 			while (this.events.length > 0 && prevrd === this.readDescriptor && this._paused === 0) {
 				this._processEvent();
 			}
+
 
 			if (this._onDrainListeners.length > 0 && this.events.length === 0 && bytesRead === 0 && this._paused === 0 && this.isDrained === false) {
 				this.pause();
