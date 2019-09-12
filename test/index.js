@@ -607,6 +607,8 @@ describe('XStreem', () => {
 				callCounter++;
 			});
 
+			expect(eventStream._onDrainListeners.length).to.equal(1);
+
 			eventStream.add({ testEvent: 123 });
 			eventStream.add({ testEvent: 123 });
 			eventStream.add({ testEvent: 123 });

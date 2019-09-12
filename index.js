@@ -63,10 +63,10 @@ class XStreem {
 			if (options.resolvePosition) {
 
 				const eventListener = (pos, event, metadata) => {
-					if (this.debug) this.debug('.add() listener waiting for checksum: ' + hash);
+					if (this.debug) this.debug('listener waited for checksum: ' + hash);
 					if (metadata.checksum === hash && metadata.host === hostname && metadata.nonce === nonce && metadata.pid === pid && metadata.time === time) {
 						this.removeListener(eventListener);
-						if (this.debug) this.debug('.add() resolves position: ' + pos);
+						if (this.debug) this.debug('listener resolves position: ' + pos);
 						resolve(pos);
 					}
 				};
@@ -106,7 +106,9 @@ class XStreem {
 	}
 
 	onDrain(cb) {
-		this._onDrainListeners.push({ cb });
+		if (typeof cb === 'function') {
+			this._onDrainListeners.push({ cb });
+		}
 	}
 
 	removeOnDrainListener(cb) {
@@ -135,15 +137,11 @@ class XStreem {
 				}
 			}
 		});
-		if (listenerCounter === 0) {
-			this.isDrained = true;
-		}
 		setImmediate(() => this._listenersCleanUp());
 	}
 
 	removeAllListeners() {
 		this._listeners.forEach((listener, index) => { if (listener.internal !== true) { listener.deleted = true; } });
-		this.isDrained = true;
 		setImmediate(() => this._listenersCleanUp());
 	}
 
@@ -364,18 +362,23 @@ class XStreem {
 			}
 
 
-			if (this._onDrainListeners.length > 0 && this.events.length === 0 && bytesRead === 0 && this._paused === 0 && this.isDrained === false) {
+			if (this.events.length === 0 && bytesRead === 0 && this._paused === 0 && this.isDrained === false) {
+				if (this.debug) this.debug('Draining.');
 				this.pause();
 				this.isDrained = true;
-				let resolveFirst;
-				let promise = new Promise((resolve, reject) => resolveFirst = resolve);
-				this._onDrainListeners.forEach(listener => {
-					if (!listener.deleted) {
+				this._listenersCleanUp();
+				this._onDrainListenersCleanUp();
+				if (this._onDrainListeners.length > 0) {
+					let resolveFirst;
+					let promise = new Promise((resolve, reject) => resolveFirst = resolve);
+					this._onDrainListeners.forEach(listener => {
 						promise = promise.then(listener.cb).catch(err => {});
-					}
-				});
-				promise.then(() => this.resume());
-				resolveFirst();
+					});
+					promise.then(() => this.resume());
+					resolveFirst();
+				} else {
+					this.resume();
+				}
 			}
 
 			this.pollLock = false;
