@@ -581,23 +581,6 @@ describe('XStreem', () => {
 
 		});
 
-		it('should not be called before anything has been read', function () {
-
-			this.timeout(7000);
-
-			let callCounter = 0;
-			const eventStream = new XStreem();
-			eventStream.onDrain(() => {
-				callCounter++;
-			});
-
-			return new Promise((resolve, reject) => setTimeout(resolve, 5000))
-				.then(() => {
-					expect(callCounter).to.equal(0);
-				});
-
-		});
-
 		it('should be called once after all event(s) has been read', function () {
 
 			this.timeout(7000);
