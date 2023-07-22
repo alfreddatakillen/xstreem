@@ -247,13 +247,12 @@ class XStreem {
 		for (let listener of this._listeners) {
 			if (listener.deleted) {
 				if (this.debug) this.debug('Listener marked as deleted.');
-			} else if (listener.pos <= this.readPosition) {
-
+			} else if (listener.pos === this.readPosition) {
 				this._callListener(listener, eventData, eventStr);
 			} else {
 				if (this.debug) this.debug('Listener at position ' + listener.pos + ', but we are at position ' + this.readPosition);
 			}
-			if (prevrd !== this.readDescriptor) return;
+			if (prevrd !== this.readDescriptor) return; // Stop loop if new read descriptor when calling listener
 		}
 	}
 

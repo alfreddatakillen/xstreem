@@ -483,9 +483,9 @@ describe('XStreem', () => {
 								log.push('b' + pos);
 								if (pos === 5) {
 									eventstream.listen(3, (pos, event) => {
-										log.push('c' + event.testevent);
+										log.push('c' + pos);
 										if (log.indexOf('a7') !== -1 && log.indexOf('b7') !== -1 && log.indexOf('c7') !== -1) {
-											resolve(log);
+											setImmediate(() => resolve(log));
 										}
 									});
 								}
@@ -501,6 +501,7 @@ describe('XStreem', () => {
 						expect(log).to.deep.equal([
 							'a0', 'a1', 'a2', 'a3', 'b0', 'b1', 'b2', 'b3', 'a4', 'b4', 'a5', 'b5', 'c3', 'c4', 'c5', 'a6', 'b6', 'c6', 'a7', 'b7', 'c7'
 						]);
+
 						eventstream.removeAllListeners();
 					});
 			});
